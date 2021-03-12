@@ -67,6 +67,8 @@ public:
   ///* Sigma point spreading parameter
   double lambda_;
 
+  double dt_pred_;
+
 
   /**
    * Constructor
@@ -110,9 +112,11 @@ public:
   void GenerateSigmaPoints(Eigen::MatrixXd* Xsig_out);
 
 
-  // void Target_prediction(double dt, double & target_x, double & target_y);
+  Eigen::VectorXd TargetPrediction(double pred_horizon);
 
-  void Generic_prediction(double dt, VectorXd& x, MatrixXd& P, MatrixXd& Xsig_pred);
+  void GenericPrediction(double dt, VectorXd& x, MatrixXd& P, MatrixXd& Xsig_pred, const MatrixXd & Xsig_aug);
+
+  void TargetGenerateSigmaPoints(Eigen::MatrixXd* Xsig_out, Eigen::VectorXd &x, Eigen::MatrixXd &P);
 };
 
 #endif /* UKF_H */

@@ -32,19 +32,19 @@ UKF::UKF() {
   std_yawdd_ = M_PI/4.;
 
   // Laser measurement noise standard deviation position1 in m
-  std_laspx_ = 0.15;
+  std_laspx_ = 0.1;
 
   // Laser measurement noise standard deviation position2 in m
-  std_laspy_ = 0.15;
+  std_laspy_ = 0.1;
 
   // Radar measurement noise standard deviation radius in m
-  std_radr_ = 0.3;
+  std_radr_ = 0.1;
 
   // Radar measurement noise standard deviation angle in rad
-  std_radphi_ = 0.03;
+  std_radphi_ = 0.01;
 
   // Radar measurement noise standard deviation radius change in m/s
-  std_radrd_ = 0.3;
+  std_radrd_ = 0.1;
 
   /**
   TODO:
@@ -82,6 +82,8 @@ UKF::UKF() {
   // // Initialize nis score
   // nis_lidar_score_ = 0;
   // nis_radar_score_ = 0; 
+
+  dt_pred_ = 0;
 }
 
 UKF::~UKF() {}
@@ -138,8 +140,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     double dt = (meas_package.timestamp_ - time_us_)/1000000.0; // time diff in sec
     time_us_ = meas_package.timestamp_;
 
-    
-
+    dt_pred_ = dt;
     Prediction(dt);
     if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
     // Radar measurement update
@@ -158,10 +159,10 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
 }
 
-void UKF::Generic_prediction(double dt, VectorXd& x, MatrixXd& P, MatrixXd& Xsig_pred)
+void UKF::GenericPrediction(double dt, VectorXd& x, MatrixXd& P, MatrixXd& Xsig_pred, const MatrixXd & Xsig_aug)
 {
-  MatrixXd Xsig_aug = MatrixXd(n_aug_, 2*n_aug_+1);
-  GenerateSigmaPoints(&Xsig_aug);
+  // MatrixXd Xsig_aug = MatrixXd(n_aug_, 2*n_aug_+1);
+  // GenerateSigmaPoints(&Xsig_aug);
   /**
    * Sigma points prediction
    */
@@ -244,12 +245,58 @@ void UKF::Prediction(double dt) {
   // create covariance matrix for prediction
   MatrixXd P = MatrixXd::Zero(n_x_, n_x_);
 
-  Generic_prediction(dt, x, P, Xsig_pred);
+
+  MatrixXd Xsig_aug = MatrixXd(n_aug_, 2*n_aug_+1);
+  GenerateSigmaPoints(&Xsig_aug);
+
+  GenericPrediction(dt, x, P, Xsig_pred, Xsig_aug);
   
   x_=x;
   P_=P;
   Xsig_pred_ =Xsig_pred;
 }
+
+Eigen::VectorXd UKF::TargetPrediction(double pred_horizon) {
+
+  /**
+   * Sigma points prediction
+   */
+  
+  
+  MatrixXd Xsig_pred = MatrixXd(n_x_, 2 * n_aug_ + 1);
+  /**
+   * States mean and covariance prediction
+   */
+  VectorXd x; 
+
+  // create covariance matrix for prediction
+  MatrixXd P;
+
+
+  MatrixXd Xsig_aug = MatrixXd(n_aug_, 2*n_aug_+1);
+
+  x = x_;
+  P = P_;
+
+
+  // for (int i=0; i<num_step; ++i)
+  // {
+  if (!is_initialized_)
+  {
+    return x_;
+  }
+  else
+  {
+    TargetGenerateSigmaPoints(&Xsig_aug, x, P);
+    GenericPrediction(pred_horizon, x, P, Xsig_pred, Xsig_aug);
+    // }
+    
+    return x;
+  }
+
+}
+
+
 
 /**
  * Updates the state and the state covariance matrix using a laser measurement.
@@ -428,6 +475,43 @@ void UKF::GenerateSigmaPoints(Eigen::MatrixXd* Xsig_out){
 
   // create augmented covariance matrix
   P_aug.topLeftCorner(n_x_, n_x_) = P_;
+  P_aug(n_x_, n_x_) = std_a_*std_a_;
+  P_aug(n_x_+1, n_x_+1) = std_yawdd_*std_yawdd_;
+  // create square root matrix
+  
+  MatrixXd A_aug = P_aug.llt().matrixL();
+
+  // create augmented sigma points
+  Xsig_aug.col(0) = x_aug;
+  
+  for (int i = 0; i<n_aug_; ++i)
+  {
+     Xsig_aug.col(i+1) = x_aug + sqrt(lambda_+n_aug_)*A_aug.col(i);
+     Xsig_aug.col(i+n_aug_+1) = x_aug - sqrt(lambda_+n_aug_)*A_aug.col(i);
+
+  }
+  *Xsig_out = Xsig_aug;
+
+}
+
+
+void UKF::TargetGenerateSigmaPoints(Eigen::MatrixXd* Xsig_out, Eigen::VectorXd &x, Eigen::MatrixXd &P){
+
+  // Generate augmented sigmapoints
+  // create augmented mean vector
+  VectorXd x_aug = VectorXd::Zero(n_aug_);
+
+  // create augmented state covariance
+  MatrixXd P_aug = MatrixXd::Identity(n_aug_, n_aug_);
+  
+  // create sigma point matrix
+  MatrixXd Xsig_aug = MatrixXd(n_aug_, 2 * n_aug_ + 1);
+ 
+  // create augmented mean state
+  x_aug.head(n_x_) = x;
+
+  // create augmented covariance matrix
+  P_aug.topLeftCorner(n_x_, n_x_) = P;
   P_aug(n_x_, n_x_) = std_a_*std_a_;
   P_aug(n_x_+1, n_x_+1) = std_yawdd_*std_yawdd_;
   // create square root matrix

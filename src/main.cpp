@@ -107,6 +107,38 @@ int main()
 
 	  target_x = ukf.x_[0];
 	  target_y = ukf.x_[1];
+    double target_vel = ukf.x_[2];
+    //     // double dt = 0.01;
+    
+    // // std::cout<<"target_x:"<<target_x<<"target_y:"<<target_y<<std::endl;
+    // // std::cout<<"target_vel:"<<target_vel<<std::endl;
+    
+    double distance_init = sqrt((target_y - hunter_y)*(target_y - hunter_y) + (target_x - hunter_x)*(target_x - hunter_x));
+    if (target_vel < 0.001) target_vel = 0.001;
+    double time_ahead = distance_init/target_vel;
+    // double time_ahead = 0;
+    std::cout<<"distance:"<<distance_init<<std::endl;
+    // int step = 1; 
+    // double distance = distance_init;
+    Eigen::VectorXd x_pred;
+    if (distance_init > 1){
+      // predict target ahead of time
+        x_pred = ukf.TargetPrediction(time_ahead);
+
+          target_x = x_pred[0];
+          target_y = x_pred[1];
+    }
+    else {
+      // if distance close then reduce predition horizon
+        time_ahead =0.1/target_vel;
+      // add a margin to prediction horizon
+        x_pred = ukf.TargetPrediction(time_ahead*1.15);
+          target_x = x_pred[0];
+          target_y = x_pred[1];
+
+    }
+
+    
 
     	  double heading_to_target = atan2(target_y - hunter_y, target_x - hunter_x);
     	  while (heading_to_target > M_PI) heading_to_target-=2.*M_PI; 
