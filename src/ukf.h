@@ -108,6 +108,11 @@ public:
    * @param Xsig_out
    */
   void GenerateSigmaPoints(Eigen::MatrixXd* Xsig_out);
+
+
+  // void Target_prediction(double dt, double & target_x, double & target_y);
+
+  void Generic_prediction(double dt, VectorXd& x, MatrixXd& P, MatrixXd& Xsig_pred);
 };
 
 #endif /* UKF_H */

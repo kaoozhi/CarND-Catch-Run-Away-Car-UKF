@@ -135,8 +135,10 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     return;
   }
 
-    double dt = (meas_package.timestamp_ - time_us_)/1000000.0; // time diff in sec      
+    double dt = (meas_package.timestamp_ - time_us_)/1000000.0; // time diff in sec
     time_us_ = meas_package.timestamp_;
+
+    
 
     Prediction(dt);
     if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
@@ -152,30 +154,18 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
        UpdateLidar(meas_package);
     // Nis monitoring
       //  cout<<"Lidar NIS>7.8 percentage:"<<nis_lidar_score_/double(nis_lidar_.size())*100<<"%"<<endl;
-
     }
+
 }
 
-/**
- * Predicts sigma points, the state, and the state covariance matrix.
- * @param {double} delta_t the change in time (in seconds) between the last
- * measurement and this one.
- */
-void UKF::Prediction(double dt) {
-  /**
-  TODO:
-
-  Complete this function! Estimate the object's location. Modify the state
-  vector, x_. Predict sigma points, the state, and the state covariance matrix.
-  */
-
+void UKF::Generic_prediction(double dt, VectorXd& x, MatrixXd& P, MatrixXd& Xsig_pred)
+{
   MatrixXd Xsig_aug = MatrixXd(n_aug_, 2*n_aug_+1);
   GenerateSigmaPoints(&Xsig_aug);
-
   /**
    * Sigma points prediction
    */
-  MatrixXd Xsig_pred = MatrixXd(n_x_, 2 * n_aug_ + 1);
+  // MatrixXd Xsig_pred = MatrixXd(n_x_, 2 * n_aug_ + 1);
   for (int i=0; i<2*n_aug_+1; ++i)
   { 
     double v_k = Xsig_aug(2,i);
@@ -213,10 +203,10 @@ void UKF::Prediction(double dt) {
   /**
    * States mean and covariance prediction
    */
-  VectorXd x = VectorXd::Zero(n_x_);
+  // VectorXd x = VectorXd::Zero(n_x_);
 
   // create covariance matrix for prediction
-  MatrixXd P = MatrixXd::Zero(n_x_, n_x_);
+  // MatrixXd P = MatrixXd::Zero(n_x_, n_x_);
 
   // predict state mean
   for (int i=0; i<(2*n_aug_+1); ++i)
@@ -233,6 +223,29 @@ void UKF::Prediction(double dt) {
       P = P + weights_(i)*x_diff* x_diff.transpose();
 
   }
+}
+
+/**
+ * Predicts sigma points, the state, and the state covariance matrix.
+ * @param {double} delta_t the change in time (in seconds) between the last
+ * measurement and this one.
+ */
+void UKF::Prediction(double dt) {
+
+  /**
+   * Sigma points prediction
+   */
+  MatrixXd Xsig_pred = MatrixXd(n_x_, 2 * n_aug_ + 1);
+  /**
+   * States mean and covariance prediction
+   */
+  VectorXd x = VectorXd::Zero(n_x_);
+
+  // create covariance matrix for prediction
+  MatrixXd P = MatrixXd::Zero(n_x_, n_x_);
+
+  Generic_prediction(dt, x, P, Xsig_pred);
+  
   x_=x;
   P_=P;
   Xsig_pred_ =Xsig_pred;
